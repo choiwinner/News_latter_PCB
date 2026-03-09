@@ -47,25 +47,45 @@ def format_as_html(news_summary, paper_summary):
     import re
 
     def process_summary(text):
-        # 1. Image URL 패턴을 더 유연하게 찾기 (4. Image: 또는 그냥 URL)
+        # 1. Image URL 패턴을 더 유연하게 찾기
         processed = []
-        # 뉴스 항목들을 분리 (번호로 시작하거나 빈 줄로 구분된 경우 대응)
+        # 뉴스 항목들을 분리
         items = re.split(r'\n\s*\n|\n(?=\d+\.\s*제목:)', text)
         
         for item in items:
             if not item.strip(): continue
             
-            # 이미지 URL 추출 (4. Image: URL 또는 텍스트 내의 URL 추출)
-            # 이미지 URL 추출 (4. Image: 또는 Image: 형식 모두 대응)
-            img_match = re.search(r'(?:\d+\.\s*)?Image:\s*(https?://\S+)', item, re.IGNORECASE)
-            if not img_match:
-                # 일반적인 URL 검색 (구글 서버 제외)
-                img_urls = re.findall(r'https?://\S+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S+)?', item, re.IGNORECASE)
-                img_url = next((u for u in img_urls if "googleusercontent.com" not in u and "gstatic.com" not in u), None)
-            else:
-                img_url = img_match.group(1).strip()
-                if "None" in img_url or "googleusercontent.com" in img_url:
+            # URL과 Image URL에서 마크다운 흔적 제거를 위한 보조 함수
+            def clean_url(url_str):
+                if not url_str: return None
+                # [URL](URL) 또는 [텍스트](URL) 형식에서 URL만 추출
+                match = re.search(r'!?\[.*?\]\((https?://\S+?)\)', url_str)
+                if match:
+                    return match.group(1).rstrip(')]')
+                # 단순 괄호 제거
+                return url_str.strip('[]() ')
+
+            # 이미지 URL 추출
+            img_match = re.search(r'(?:\d+\.\s*)?Image:\s*(\S+)', item, re.IGNORECASE)
+            img_url = None
+            if img_match:
+                img_url = clean_url(img_match.group(1))
+                if img_url and ("None" in img_url or "googleusercontent.com" in img_url):
                     img_url = None
+            
+            if not img_url:
+                img_urls = re.findall(r'https?://\S+\.(?:jpg|jpeg|png|gif|webp)(?:\?\S+)?', item, re.IGNORECASE)
+                if img_urls:
+                    img_url = clean_url(img_urls[0])
+                    if img_url and ("googleusercontent.com" in img_url or "gstatic.com" in img_url):
+                        img_url = None
+
+            # 본문 내 URL도 정리 (3. URL: 부분)
+            url_match = re.search(r'3\.\s*URL:\s*(\S+)', item, re.IGNORECASE)
+            if url_match:
+                raw_url = url_match.group(1)
+                cleaned_url_val = clean_url(raw_url)
+                item = item.replace(raw_url, cleaned_url_val)
 
             item_html = item.replace('\n', '<br>')
             # 형식 태그 제거 (번호 등 모든 Image 라인 제거)
@@ -76,7 +96,7 @@ def format_as_html(news_summary, paper_summary):
                 <div class="item-content">
                     <div class="item-image">
                         <a href="{img_url}" target="_blank">
-                            <img src="{img_url}" alt="News Image">
+                            <img src="{img_url}" alt="News Image" onerror="this.parentElement.parentElement.style.display='none'">
                         </a>
                     </div>
                     <div class="item-text">
@@ -123,7 +143,7 @@ def format_as_html(news_summary, paper_summary):
     <body>
         <div class="container">
             <h1>🚀 주간 PCB & 패키징 기술 리포트</h1>
-            <p style="text-align: center; color: #718096; font-size: 1.1em; margin-bottom: 40px;">DeepMind Gemini 기반 선별 브리핑</p>
+            <p style="text-align: center; color: #718096; font-size: 1.1em; margin-bottom: 40px;">DeepMind Gemini 3 Flash 기반 선별 브리핑</p>
             
             <h2>📰 주요 뉴스 (Core News)</h2>
             {news_html}
