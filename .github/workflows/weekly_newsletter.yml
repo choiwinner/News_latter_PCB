@@ -2,8 +2,8 @@ name: Weekly Memory Trends Newsletter
 
 on:
   schedule:
-    # 매주 화요일 오전 8시 (KST) -> UTC 기준 월요일 오후 11시
-    - cron: '0 23 * * 1'
+    # 매주 수요일 오전 8시 (KST) -> UTC 기준 화요일 오후 11시
+    - cron: '0 23 * * 2'
   workflow_dispatch: # 수동 실행 버튼 활성화
 
 jobs:
