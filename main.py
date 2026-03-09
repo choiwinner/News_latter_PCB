@@ -12,7 +12,7 @@ def main():
     
     # 1. 뉴스 데이터 수집
     # 구글 뉴스 검색 효율을 높이기 위해 키워드 조합 및 OR 연산자 활용
-    pcb_query = 'PCB (인쇄회로기판 OR 패키징 OR 서브스트레이트 OR 기판) (기술 OR 산업 OR 시장 OR 동향 OR 출시)'
+    pcb_query = 'PCB (인쇄회로기판 OR 패키징 OR 서브스트레이트 OR 기판 OR 테스트 OR TEST OR BOARD) (기술 OR 산업 OR 시장 OR 동향 OR 출시)'
     news_items = get_google_news(pcb_query, days=7, max_results=10)
     print(f"수집된 뉴스 개수: {len(news_items)}")
     
