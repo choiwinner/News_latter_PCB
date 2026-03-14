@@ -28,12 +28,18 @@ def main():
     # 4. LLM 요약 (Gemini)
     print("Gemini를 사용해 요약 생성 중...")
     news_summary = summarize_content(news_items, category="주요 뉴스")
-    # 60초 동안 프로세스를 중단합니다.
+
+    # 60초 대기 (다음 API 호용 전 RPM 제한 회피)
+    time.sleep(60)
+    # 5. 지식 그래프 생성 (뉴스 요약 후 RPM 대기 시간 활용)
+    graph_base64 = generate_knowledge_graph(news_items)
+
+    # 60초 대기 (다음 API 호용 전 RPM 제한 회피)
     time.sleep(60)
     paper_summary = summarize_content(paper_items, category="주요 논문")
-    
-    # 5. HTML 뉴스레터 생성
-    html_content = format_as_html(news_summary, paper_summary)
+
+    # 6. HTML 뉴스레터 생성
+    html_content = format_as_html(news_summary, paper_summary, graph_base64=graph_base64)
     
     # 6. 이메일 발송
     print("이메일 발송 준비 중...")
