@@ -1,9 +1,11 @@
 from crawler import get_google_news, get_arxiv_papers
 from summarizer import summarize_content
 from mailer import send_newsletter, format_as_html
+from knowledge_graph import generate_knowledge_graph
 import os
 from dotenv import load_dotenv
 import time
+
 
 load_dotenv()
 
