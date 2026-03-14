@@ -39,7 +39,7 @@ def send_newsletter(content_html, subject="[주간 브리핑] PCB 및 차세대 
         print(f"이메일 발송 실패: {e}")
         return False
 
-def format_as_html(news_summary, paper_summary):
+def format_as_html(news_summary, paper_summary, graph_base64=None):
     """
     요약된 내용을 이메일용 HTML로 변환합니다.
     News_html_ex.html의 스타일을 참조하여 가독성이 높고 프리미엄한 디자인을 적용합니다.
@@ -143,6 +143,27 @@ def format_as_html(news_summary, paper_summary):
     news_items_html = process_summary(news_summary)
     paper_items_html = process_summary(paper_summary)
 
+    # 지식 그래프 섹션 HTML (Base64 이미지가 있을 경우에만 생성)
+    graph_section_html = ""
+    if graph_base64:
+        graph_section_html = f"""
+            <!-- 지식 그래프 섹션 -->
+            <tr>
+                <td style="padding: 40px 20px 10px; background-color: #f1f6ff;">
+                    <h2 style="margin: 0; font-size: 20px; color: #1a365d; display: flex; align-items: center;">
+                        <span style="font-size: 24px; margin-right: 8px;">📊</span> 주요 엔티티 관계 그래프
+                    </h2>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 15px 20px 30px; border-bottom: 1px solid #eeeeee; text-align: center;">
+                    <img src="data:image/png;base64,{graph_base64}"
+                         alt="지식 그래프"
+                         style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);">
+                    <p style="margin: 12px 0 0; font-size: 12px; color: #9aa0a6;">뉴스 기사에서 AI가 자동 추출한 엔티티와 관계를 시각화한 그래프입니다.</p>
+                </td>
+            </tr>"""
+
     html = f"""
     <!DOCTYPE html>
     <html lang="ko">
@@ -180,6 +201,8 @@ def format_as_html(news_summary, paper_summary):
                 </td>
             </tr>
             {news_items_html}
+
+            {graph_section_html}
 
             <!-- 논문 섹션 -->
             <tr>
