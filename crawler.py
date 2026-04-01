@@ -110,35 +110,104 @@ def get_article_image(url, retries=2, delay=1.5):
             
     return None
 
+def filter_relevant_news(items, keywords_str, top_n=10):
+    """
+    제목 및 출처를 기반으로 뉴스 기사의 관련성을 점수화하고 중복을 제거하여 상위 n개를 선별합니다.
+    """
+    # 1. 신뢰도 높은 출처 목록 (가중치 부여)
+    REPUTABLE_SOURCES = [
+        "전자신문", "ZDNet", "지디넷", "디지털데일리", "디데일리", "테크월드", "헬로티", 
+        "매일경제", "한국경제", "EE Times", "Digitimes", "Reuters", "Bloomberg", "Forbes"
+    ]
+    
+    # 2. 관련 핵심 키워드 (가중치 부여용)
+    core_keywords = ["PCB", "인쇄회로기판", "패키징", "packaging", "서브스트레이트", "substrate", "기판", "반도체", "HBM"]
+    
+    scored_items = []
+    seen_titles = [] # 중복 제거용 (제목 유사성 기반)
+
+    for item in items:
+        title = item.get("title", "").strip()
+        source = item.get("source", "")
+        
+        # 3. 간단한 중복 제거 (완전 일치 또는 매우 유사한 제목 제외)
+        # 제목에서 특수문자 제거 후 비교
+        clean_title = "".join(e for e in title if e.isalnum())
+        is_duplicate = False
+        for seen in seen_titles:
+            # 제목이 80% 이상 겹치면 중복으로 간주
+            if len(clean_title) > 0 and (clean_title in seen or seen in clean_title):
+                is_duplicate = True
+                break
+        
+        if is_duplicate:
+            continue
+        
+        # 4. 점수 계산
+        score = 0
+        
+        # 키워드 점수
+        for kw in core_keywords:
+            if kw.lower() in title.lower():
+                score += 5
+        
+        # 출처 점수
+        for rep in REPUTABLE_SOURCES:
+            if rep.lower() in source.lower() or rep.lower() in title.lower():
+                score += 10
+                
+        scored_items.append((score, item))
+        seen_titles.append(clean_title)
+
+    # 점수 높은 순으로 정렬
+    scored_items.sort(key=lambda x: x[0], reverse=True)
+    
+    return [x[1] for x in scored_items[:top_n]]
+
 def get_google_news(keywords, days=7, max_results=10):
     """
     구글 뉴스 RSS를 통해 키워드 관련 뉴스를 가져옵니다.
+    효율성을 위해 먼저 제목을 필터링한 후 상세 정보(이미지 등)를 추출합니다.
     """
     base_url = "https://news.google.com/rss/search?q={query}&hl=ko&gl=KR&ceid=KR:ko"
-    # 최근 n일간의 검색 결과 필터링 (when:7d 방식)
     query = f"{keywords} when:{days}d"
     encoded_query = urllib.parse.quote(query)
     rss_url = base_url.format(query=encoded_query)
     
     feed = feedparser.parse(rss_url)
-    results = []
     
-    for entry in feed.entries[:max_results]:
-        # 뉴스 기사의 실제 원본 URL을 찾기 위해 처리
-        decoded_url = resolve_google_news_url(entry.link)
-        
-        # 기사별 처리 사이에 랜덤한 지연 추가 (서버 부하 분산 및 봇 탐지 회피)
-        time.sleep(random.uniform(1.0, 2.5))
+    # 1. 먼저 RSS에서 제공하는 기본 정보만 수집 (최대 30개)
+    initial_items = []
+    for entry in feed.entries[:30]:
+        initial_items.append({
+            "title": entry.title,
+            "link": entry.link,
+            "published": entry.published,
+            "source": entry.source.get("title", "Google News") if hasattr(entry, "source") else "Google News"
+        })
+    
+    # 2. 관련성 및 중복 제거 필터링 적용 (원하는 결과 수의 1.2배 정도를 먼저 선별)
+    filtered_items = filter_relevant_news(initial_items, keywords, top_n=int(max_results * 1.2))
+    
+    # 3. 선별된 아이템들에 대해서만 상세 정보(원본 URL, 이미지) 추출
+    results = []
+    for item in filtered_items:
+        if len(results) >= max_results:
+            break
+            
+        decoded_url = resolve_google_news_url(item["link"])
+        time.sleep(random.uniform(0.5, 1.5)) # 지연 단축 (이미 필터링됨)
         
         image_url = get_article_image(decoded_url)
         
         results.append({
-            "title": entry.title,
+            "title": item["title"],
             "link": decoded_url,
-            "published": entry.published,
-            "source": "Google News",
+            "published": item["published"],
+            "source": item["source"],
             "image_url": image_url
         })
+        
     return results
 
 def get_arxiv_papers(keywords, max_results=5):

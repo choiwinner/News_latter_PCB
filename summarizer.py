@@ -14,7 +14,7 @@ last_call_time = 0
 @retry(
     stop=stop_after_attempt(5),
     wait=wait_exponential(multiplier=1, min=4, max=60),
-    retry=retry_if_exception_type(errors.ClientError),
+    retry=retry_if_exception_type((errors.ClientError, errors.ServerError)),
     reraise=True
 )
 def generate_content_with_retry(client, model_name, prompt):
@@ -38,9 +38,9 @@ def generate_content_with_retry(client, model_name, prompt):
         )
         last_call_time = time.time() # 성공적으로 호출한 시간 기록
         return response.text
-    except errors.ClientError as e:
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            print(f"API 할당량 초과. 재시도 중... ({e})")
+    except (errors.ClientError, errors.ServerError) as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "503" in str(e) or "UNAVAILABLE" in str(e):
+            print(f"API 이슈(429/503). 재시도 중... ({e})")
             raise e
         raise e
 
@@ -60,18 +60,20 @@ def summarize_content(items, category="뉴스"):
     # model_name = "gemini-2.5-flash-lite"
 
     prompt = f"""
-    당신은 PCB(인쇄회로기판) 및 반도체 패키징 기술 전문가입니다. 다음 제공된 {category} 목록을 바탕으로 주간 브리핑을 작성해 주세요.
+    당신은 PCB(인쇄회로기판), 반도체 패키징 및 고밀도 상호연결 기술 전문가입니다. 
+    제공된 {category} 목록을 바탕으로, 전문적인 기술 통향이 담긴 주간 브리핑을 작성해 주세요.
     
     각 항목에 대해 다음 형식을 엄격히 지켜주세요:
-    1. 제목: [기사/논문의 핵심 내용을 담은 한글 제목]
-    2. 요약: [내용을 2-3문장으로 핵심 요약]
-    3. URL: [제공된 원본 URL을 마크다운 형식 없이 순수하게 문자열로만 적어주세요. 예: https://example.com]
-    4. Image: [제공된 image_url이 있다면 순수 URL만 적어주세요. 없다면 'None'. 마크다운 형식을 절대 사용하지 마세요.]
+    1. 제목: [기사/논문의 핵심 기술 키워드를 포함한 전문적인 한글 제목]
+    2. 요약: [공신력 있는 정보를 바탕으로, 기술적 특징과 파급력을 2-3문장으로 핵심 분석 요약]
+    3. URL: [제공된 원본 URL을 마크다운 형식 없이 순수하게 문자열로만 적어주세요.]
+    4. Image: [제공된 image_url이 있다면 순수 URL만 적어주세요. 없다면 'None'.]
 
-    
-    언어는 한국어여야 합니다. 전문적이고 분석적인 톤을 유지하세요.
-    최근 PCB 설계, 제조 공정, 서브스트레이트 기판 및 차세대 패키징 기술 동향에 집중해 주세요.
-    주의: URL과 Image 항목에는 [링크](URL)와 같은 마크다운 형식을 절대 사용하지 말고 순수 URL만 포함하세요.
+    중요 지침:
+    - 기술적 정확성과 전문성을 최우선으로 하세요. 
+    - 중복된 정보는 지양하고, 기술적 가치가 높은 소식을 우선 선정하여 분석하세요.
+    - 대상 기사가 기술적으로 중요한 내용을 담고 있다면 이를 구체적으로 명시하세요.
+    - URL과 Image 항목에는 마크다운 형식을 절대 사용하지 마세요.
     
     대상 데이터:
     {items}

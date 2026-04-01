@@ -961,7 +961,7 @@ wheels = [
 ]
 
 [[package]]
-name = "news-latter"
+name = "news-latter-pcb"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
