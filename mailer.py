@@ -51,25 +51,35 @@ def format_as_html(news_summary, paper_summary, graph_base64=None):
 
     def process_summary(text):
         processed = []
-        # 뉴스 항목들을 분리
-        items = re.split(r'\n\s*\n|\n(?=\d+\.\s*제목:)', text)
+        # 0. 마크다운 볼드체(**) 등 불필요한 기호 전처리 (일관된 파싱을 위해)
+        text = text.replace('**', '')
+
+        # 뉴스 항목들을 분리 (숫자. 제목: 또는 제목: 형태 대응)
+        items = re.split(r'\n\s*\n|\n(?=\d+\.\s*제목:|\s*제목:)', text)
         
         for item in items:
             if not item.strip(): continue
             
             def clean_url(url_str):
                 if not url_str: return None
+                # 마크다운 링크 형식 [text](url) 처리
                 match = re.search(r'!?\[.*?\]\((https?://\S+?)\)', url_str)
                 if match:
-                    return match.group(1).rstrip(')]')
-                return url_str.strip('[]() ')
+                    url = match.group(1).rstrip(')]')
+                else:
+                    url = url_str.strip('[]() *~_') # 마크다운 기호 제거
+                
+                # 'None' 텍스트이거나 불완전한 URL 필터링
+                if not url or url.lower() in ['none', 'null', 'n/a', '#']:
+                    return None
+                return url
 
-            # 이미지 URL 추출
-            img_match = re.search(r'(?:\d+\.\s*)?Image:\s*(\S+)', item, re.IGNORECASE)
+            # 이미지 URL 추출 (유효성 검사 강화)
+            img_match = re.search(r'(?:Image|이미지):\s*(\S+)', item, re.IGNORECASE)
             img_url = None
             if img_match:
                 img_url = clean_url(img_match.group(1))
-                if img_url and ("None" in img_url or "googleusercontent.com" in img_url):
+                if img_url and "googleusercontent.com" in img_url:
                     img_url = None
             
             if not img_url:
@@ -80,8 +90,8 @@ def format_as_html(news_summary, paper_summary, graph_base64=None):
                         img_url = None
 
             # URL 추출 및 본문 내 URL 안내 제거 (번호가 없거나 다른 경우에도 대응)
-            url_match = re.search(r'(?:\d+\.\s*)?URL:\s*(\S+)', item, re.IGNORECASE)
-            article_url = "#"
+            url_match = re.search(r'(?:URL|링크):\s*(\S+)', item, re.IGNORECASE)
+            article_url = None
             if url_match:
                 raw_url = url_match.group(1)
                 article_url = clean_url(raw_url)
@@ -114,9 +124,7 @@ def format_as_html(news_summary, paper_summary, graph_base64=None):
                                     <div style="font-size: 15px; color: #4a5568; line-height: 1.6;">
                                         {item_html}
                                     </div>
-                                    <div style="margin-top: 15px;">
-                                        <a href="{article_url}" style="color: #1a73e8; text-decoration: none; font-size: 14px; font-weight: bold;">더 알아보기 &rarr;</a>
-                                    </div>
+                                    {f'<div style="margin-top: 15px;"><a href="{article_url}" style="color: #1a73e8; text-decoration: none; font-size: 14px; font-weight: bold;">더 알아보기 &rarr;</a></div>' if article_url else ''}
                                 </td>
                             </tr>
                         </table>
@@ -130,9 +138,7 @@ def format_as_html(news_summary, paper_summary, graph_base64=None):
                         <div style="font-size: 15px; color: #4a5568; line-height: 1.6;">
                             {item_html}
                         </div>
-                        <div style="margin-top: 15px;">
-                            <a href="{article_url}" style="color: #1a73e8; text-decoration: none; font-size: 14px; font-weight: bold;">더 알아보기 &rarr;</a>
-                        </div>
+                        {f'<div style="margin-top: 15px;"><a href="{article_url}" style="color: #1a73e8; text-decoration: none; font-size: 14px; font-weight: bold;">더 알아보기 &rarr;</a></div>' if article_url else ''}
                     </td>
                 </tr>
                 """
