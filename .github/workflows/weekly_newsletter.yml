@@ -38,8 +38,3 @@ jobs:
         RECIPIENT_EMAILS: ${{ secrets.RECIPIENT_EMAILS }}
       run: |
         uv run main.py
-
-  # 60일 비활성화 방지를 위한 Keepalive 스텝 추가
-    - name: Keepalive Workflow
-      uses: gautamkrishnar/keepalive-workflow@v2 
-  #
