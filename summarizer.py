@@ -13,8 +13,8 @@ last_call_time = 0
 
 @retry(
     stop=stop_after_attempt(5),
-    wait=wait_exponential(multiplier=1, min=4, max=60),
-    retry=retry_if_exception_type((errors.ClientError, errors.ServerError)),
+    wait=wait_exponential(multiplier=2, min=10, max=120),
+    retry=retry_if_exception_type(Exception),
     reraise=True
 )
 def generate_content_with_retry(client, model_name, prompt):
@@ -38,10 +38,11 @@ def generate_content_with_retry(client, model_name, prompt):
         )
         last_call_time = time.time() # 성공적으로 호출한 시간 기록
         return response.text
-    except (errors.ClientError, errors.ServerError) as e:
+    except Exception as e:
         if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e) or "503" in str(e) or "UNAVAILABLE" in str(e):
-            print(f"API 이슈(429/503). 재시도 중... ({e})")
-            raise e
+            print(f"API 이슈(429/503/기타). 재시도 중... ({e})")
+        else:
+            print(f"예상치 못한 오류 발생, 재시도 중... ({e})")
         raise e
 
 def summarize_content(items, category="뉴스"):
