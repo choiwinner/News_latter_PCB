@@ -210,7 +210,7 @@ def get_google_news(keywords, days=7, max_results=10):
         
     return results
 
-def get_arxiv_papers(keywords, max_results=5):
+def get_arxiv_papers(keywords, max_results=5, max_retries=3):
     """
     arXiv API를 통해 관련 논문을 가져옵니다.
     """
@@ -220,17 +220,32 @@ def get_arxiv_papers(keywords, max_results=5):
         sort_by=arxiv.SortCriterion.SubmittedDate
     )
     
-    results = []
-    for result in search.results():
-        # 최근 7일 이내 논문인지 확인 (필요시 조절)
-        results.append({
-            "title": result.title,
-            "link": result.entry_id,
-            "published": result.published.strftime("%Y-%m-%d"),
-            "summary": result.summary, # LLM 요약을 위해 원문 요약 포함
-            "source": "arXiv"
-        })
-    return results
+    for attempt in range(max_retries):
+        try:
+            results = []
+            for result in search.results():
+                # 최근 7일 이내 논문인지 확인 (필요시 조절)
+                results.append({
+                    "title": result.title,
+                    "link": result.entry_id,
+                    "published": result.published.strftime("%Y-%m-%d"),
+                    "summary": result.summary, # LLM 요약을 위해 원문 요약 포함
+                    "source": "arXiv"
+                })
+            return results
+        except arxiv.HTTPError as e:
+            if attempt < max_retries - 1:
+                delay = (2 ** (attempt + 1)) + random.uniform(0, 1)
+                print(f"arXiv API 접속 오류 ({e}). {delay:.1f}초 후 재시도... ({attempt + 1}/{max_retries})")
+                time.sleep(delay)
+            else:
+                print(f"arXiv API 최종 실패: {e}")
+                return []
+        except Exception as e:
+            print(f"arXiv API 논문 수집 중 알 수 없는 오류 발생: {e}")
+            return []
+            
+    return []
 
 if __name__ == "__main__":
     # 간단한 테스트
